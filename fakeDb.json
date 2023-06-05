@@ -1,0 +1,7 @@
+{
+    "messages": [
+        {"id": 0, "user": "Jhon", "text":"some text"},
+        {"id": 1, "user": "Jhon", "text":"some text"},
+        {"id": 2, "user": "Jhon", "text":"some text"}
+    ]
+}
