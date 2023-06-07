@@ -6,6 +6,7 @@ const bodyParser = require('body-parser');
 const cors = require('cors')
 const joi = require('joi');
 const { userValidation } = require('./userValidation');
+const nodemailer = require("nodemailer");
 
 const app = express();
 const port = process.env.PORT || 2000;
@@ -36,7 +37,7 @@ app.post('/login', (req, res) => {
         return res.status(500).send("[ERROR] Cannot connect to db.");
     }
 
-    db.query(`SELECT users.id, users.username, users.password FROM users WHERE users.username = "${req.body.username}" LIMIT 1;`, (err, result) => {
+    db.query(`SELECT users.id, users.username, users.password, users.isVerified FROM users WHERE users.username = "${req.body.username}" OR users.email = "${req.body.username}" LIMIT 1;`, (err, result) => {
         if (err) throw err;
 
         if(!result.length) {
@@ -45,6 +46,13 @@ app.post('/login', (req, res) => {
                 success: false,
                 message: `${req.body.username} does not exist.` 
             });
+        }
+
+        if (!result[0].isVerified) {
+            return res.json({ 
+                success: false,
+                message: `Please verify your email.` 
+            }); 
         }
 
         if (req.body.password != result[0].password) {
@@ -73,29 +81,52 @@ app.post('/signin', (req, res) => {
         return res.json({ success: false, message: validation.error });
     }
 
-    db.query(`SELECT users.username FROM users WHERE users.username = "${req.body.username}" LIMIT 1;`, (err, result) => {
+    db.query(`SELECT users.username FROM users WHERE users.username = "${req.body.username}" OR users.email = "${req.body.email}" LIMIT 1;`, (err, result) => {
         if (err) throw err;
         if(result.length) {
             console.log('result: ' + result);
-            console.log(`[INFO] ${req.body.username} already exists.`);
+            console.log(`[INFO] ${req.body.username} or ${req.body.email} already exists.`);
             return res.json({ success: false });
         }
         else {
-            db.query(`INSERT INTO users(username, password) VALUES ("${req.body.username}", "${req.body.password}");`, (err, result) => {
+            db.query(`INSERT INTO users(username, email, password) VALUES ("${req.body.username}", "${req.body.email}", "${req.body.password}");`, (err, result) => {
                 if (err) throw err;
                 console.log(`[INFO] inserted ${req.body.username} user.`);
+
+                let randomString = "";
+                for (let i = 0; i < 12; i++) {
+                    randomString += (Math.floor(Math.random() * 10)).toString();
+                }
+
+                db.query(`UPDATE users SET verificationCode = "${randomString}" WHERE username = "${req.body.username}";`, (err, result) => {
+                    if (err) throw err;
+                });
+
+                sendMail(req.body.email, randomString);
+
                 return res.json({ success: true});
             });
         }
     });
 });
 
+app.get('/verify', (req, res) => {
+    db.query(`SELECT users.id FROM users WHERE users.verificationCode = "${req.query.code}"`, (err, result) => {
+        if (err) throw err;
+        db.query(`UPDATE users SET isVerified = true WHERE id = ${result[0].id}`, (err) => {
+            if (err) throw err;
+            console.log(`[INFO] Verified user ${result[0].id}`);
+            return res.send('Successfully verified email.');
+        })
+    })
+})
+
 app.get('/messages', (req, res) => {
     if (!isConnected) {
         return res.status(500).send("Cannot connect to db.");
     }
     
-    db.query("SELECT * FROM messages ORDER BY id DESC LIMIT 10;", (err, result) => {
+    db.query(`SELECT * FROM messages ORDER BY id DESC LIMIT ${req.query.num};`, (err, result) => {
         if (err) throw err;
         return res.json(result);
     })
@@ -146,6 +177,40 @@ app.delete("/deleteMessage", (req, res) => {
     });
 });
 
+app.get("/users", (req, res) => {
+    if (!isConnected) {
+        return res.status(500).send("Cannot connect to db.");
+    }
+
+    db.query(`SELECT username, isOnline FROM users`, (err, result) => {
+        if (err) throw err;
+        return res.json(result);
+    })
+});
+
 server.listen(port, () => {
     console.log(`[INFO] Webserver listening on port ${port}.`);
 });
+
+
+const sendMail = (destinationMail, randomString) => {
+    const Transport = nodemailer.createTransport({
+        service: "Gmail",
+        auth: {
+            user: "chatroomapp123@gmail.com",
+            pass: "zjvdquujvbldctkp"
+        }
+    });
+
+    const mailOptions = {
+        from: "chatroomapp123@gmail.com",
+        to: destinationMail,
+        subject: "Confirm registration",
+        html: `Click <a href="http://localhost:2000/verify?code=${randomString}">here</a> to verify your mail.`
+    };
+
+    Transport.sendMail(mailOptions, (err) => {
+        if (err) throw err;
+        console.log(`[INFO] Verification mail sent to ${destinationMail}`);
+    });
+}

@@ -9,6 +9,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "joi": "^17.9.2"
+    "joi": "^17.9.2",
+    "nodemailer": "^6.9.3"
   }
 }
