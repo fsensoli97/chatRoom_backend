@@ -7,6 +7,8 @@ const cors = require('cors')
 const joi = require('joi');
 const { userValidation } = require('./userValidation');
 const nodemailer = require("nodemailer");
+const multer = require('multer');
+const upload = multer({ dest: 'profilePics/' })
 
 const app = express();
 const port = process.env.PORT || 2000;
@@ -102,7 +104,7 @@ app.post('/signin', (req, res) => {
                     if (err) throw err;
                 });
 
-                sendMail(req.body.email, randomString);
+                sendMail(req.body.email, randomString, req.body.username);
 
                 return res.json({ success: true});
             });
@@ -182,18 +184,39 @@ app.get("/users", (req, res) => {
         return res.status(500).send("Cannot connect to db.");
     }
 
-    db.query(`SELECT username, isOnline FROM users`, (err, result) => {
+    db.query(`SELECT id, username, isOnline FROM users`, (err, result) => {
         if (err) throw err;
         return res.json(result);
     })
 });
+
+app.put('/profilepic', upload.single('profilePic'), (req, res) => {
+    if (!isConnected) {
+        return res.status(500).send("Cannot connect to db.");
+    }
+
+    db.query(`UPDATE users SET profilePicturePath = "${req.file.filename}" WHERE id = ${req.query.id};`, (err, result) => {
+        if (err) throw err;
+        return res.json(result);
+    });
+})
+
+app.get('/profilepic', (req, res) => {    
+    db.query(`SELECT profilePicturePath FROM users WHERE id = ${req.query.id};`, (err, result) => {
+        if (err) throw err;
+        if (!result[0].profilePicturePath) {
+            return res.json(null);
+        }
+        return res.sendFile(path.join(__dirname, "profilePics", result[0].profilePicturePath));
+    });
+})
 
 server.listen(port, () => {
     console.log(`[INFO] Webserver listening on port ${port}.`);
 });
 
 
-const sendMail = (destinationMail, randomString) => {
+const sendMail = (destinationMail, randomString, user) => {
     const Transport = nodemailer.createTransport({
         service: "Gmail",
         auth: {
@@ -206,7 +229,7 @@ const sendMail = (destinationMail, randomString) => {
         from: "chatroomapp123@gmail.com",
         to: destinationMail,
         subject: "Confirm registration",
-        html: `Click <a href="http://localhost:2000/verify?code=${randomString}">here</a> to verify your mail.`
+        html: `Hi ${user},<br>please click <a href="http://localhost:2000/verify?code=${randomString}">here</a> to verify your mail.`
     };
 
     Transport.sendMail(mailOptions, (err) => {
