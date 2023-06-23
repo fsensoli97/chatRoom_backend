@@ -32,6 +32,7 @@ const db = mysql.createConnection({
 });
 */
 
+/*
 const database = 'chatroom';
 let isConnected = false;
 const db = new pg.Client({
@@ -40,6 +41,17 @@ const db = new pg.Client({
     port: 5432,
     user: 'postgres',
     password: 'Datalogic5',
+});
+*/
+
+const database = 'chatroomdb';
+let isConnected = false;
+const db = new pg.Client({
+    host: 'dpg-cialr0l9aq007t9r9uh0-a',
+    database: database,
+    port: 5432,
+    user: 'fsensoli',
+    password: 'KjjJ6FXXcvh6EJj1FEwNBD9W5qCiy9Op',
 });
 
 db.connect((err) => {
