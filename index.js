@@ -11,13 +11,14 @@ const multer = require('multer');
 const upload = multer({ dest: 'profilePics/' });
 const pg = require('pg');
 
-const serverUrl = "http://localhost:2000/";
+const serverUrl = "https://chat-room-6vz9.onrender.com/";
 const app = express();
 const port = process.env.PORT || 2000;
 app.use(express.static(path.join(__dirname, 'static'), { index : false })); 
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({extended: true}));
-app.use(cors({ origin: true, credentials: true }));
+//app.use(cors({ origin: true, credentials: true }));
+app.use(cors());
 
 let server = http.createServer(app);
 
